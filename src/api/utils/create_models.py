@@ -5,12 +5,14 @@ CHANGED_TYPES = {"string": "str", "integer": "int", "date-time": "datetime", "nu
 
 EXAMPLE_SCHEMA = """from pydantic import BaseModel
 from datetime import datetime
-imports WIP
+{imports}
 
 class {schema_name}(BaseModel):
 {properties}"""
 
-def make_type(prop: dict[str, str]) -> str:
+def make_type(prop: dict[str, str]) -> tuple[str, str]:
+    imports = ""
+
     if "type" in prop.keys():
         prop_type = prop["type"]
         if prop_type in CHANGED_TYPES.keys():
@@ -20,45 +22,51 @@ def make_type(prop: dict[str, str]) -> str:
 
     elif "$ref" in prop.keys():
         changed_prop_type = prop["$ref"].split("/")[-1]
+        imports = f"from . import {changed_prop_type}\n"
 
     else:
         changed_prop_type = None
         print(f"$$$$${prop}")
 
-    return changed_prop_type
+    return imports, changed_prop_type
 
-def make_any_of(prop) -> str:
+def make_any_of(prop) -> tuple[str, str]:
+    total_imports = ""
     prop_types = list()
     for any_of_item in prop["anyOf"]:
-        prop_types.append(make_type(any_of_item))
+        imports, prop_type = make_type(any_of_item)
+        total_imports += imports
+        prop_types.append(prop_type)
 
-    return " | ".join(prop_types)
+    return total_imports, " | ".join(prop_types)
 
 
-def make_schema(schema: dict) -> str:
+def make_schema(schema: dict) -> tuple[str, str]:
     properties = ""
+    total_imports = ""
     for prop_index, prop in schema["properties"].items():
         if "anyOf" in prop.keys():
-            changed_prop_type = make_any_of(prop)
+            imports, changed_prop_type = make_any_of(prop)
         elif "allOf" in prop.keys():
-            changed_prop_type = make_type(prop["allOf"])
+            imports, changed_prop_type = make_type(prop["allOf"][0])
         else:
-            changed_prop_type = make_type(prop)
+            imports, changed_prop_type = make_type(prop)
 
-        changed_prop_type = f": {changed_prop_type}" if changed_prop_type else ""
+        changed_prop_type = f": {changed_prop_type}" if changed_prop_type else "" # If type not provided
 
+        total_imports += imports
         properties += f"    {prop_index}{changed_prop_type}\n"
 
 
-    return properties
+    return total_imports, properties
 
 def main() -> None:
     schemas: dict[str, dict] = get(OPENAPI_URL).json()["components"]["schemas"]
 
     for schema_index, schema in schemas.items():
         if "properties" in schema.keys():
-            properties = make_schema(schema)
-            file_schema = EXAMPLE_SCHEMA.format(schema_name=schema["title"], properties=properties)
-            # print(file_schema + "\n-----------------\n")
+            imports, properties = make_schema(schema)
+            file_schema = EXAMPLE_SCHEMA.format(schema_name=schema["title"], properties=properties, imports=imports)
+            print(file_schema + "\n-----------------\n")
 
 main()
