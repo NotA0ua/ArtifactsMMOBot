@@ -17,6 +17,12 @@ EXAMPLE_SCHEMA = """from pydantic import BaseModel
 class {schema_name}(BaseModel):
 {properties}"""
 
+EXAMPLE_ENUM = """
+from enum import StrEnum
+
+class {enum_name}(StrEnum):
+{elements}"""
+
 
 def parse_prop_type(prop_type: str, prop: dict[str, Any]) -> tuple[str, str]:
     if prop_type in CHANGED_TYPES:
@@ -84,17 +90,33 @@ def make_schema(schema: dict[str, Any]) -> tuple[str, str]:
 
     return imports, properties
 
-
-def main() -> None:
-    schemas: dict[str, dict] = get(OPENAPI_URL).json()["components"]["schemas"]
-
-    for schema_index, schema in schemas.items():
-        if "properties" in schema.keys():
+def resolve_model_type(schema: dict[str, Any]) -> str | None:
+        if "properties" in schema:
             imports, properties = make_schema(schema)
             file_schema = EXAMPLE_SCHEMA.format(
                 schema_name=schema["title"], properties=properties, imports=imports
             )
-            print(file_schema + "-----------------")
+            return file_schema
+
+        elif "enum" in schema:
+            elements = "\n".join(["    " + elem.upper() for elem in schema["enum"]])
+            file_enum = EXAMPLE_ENUM.format(
+                enum_name=schema["title"],
+                elements=elements
+            )
+            return file_enum
+
+
+        return None
+
+
+def main() -> None:
+    schemas: dict[str, dict] = get(OPENAPI_URL).json()["components"]["schemas"]
+    for schema in schemas.values():
+        file = resolve_model_type(schema) # get file, filename
+        if file:
+            print(file + "-----------------")
+
 
 
 main()
