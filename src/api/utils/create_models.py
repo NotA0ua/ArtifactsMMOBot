@@ -22,16 +22,21 @@ class {schema_name}(BaseModel):
 {properties}
 """
 
-EXAMPLE_ENUM = """
-from enum import StrEnum
+EXAMPLE_ENUM = """from enum import StrEnum
 
 class {enum_name}(StrEnum):
 {elements}
 """
 
+# Data page will import in code
+EXAMPLE_DATAPAGE = """class {datapage_name}(DataPage):
+    data: list[{datapage_type}]
+"""
+
+
 def camel_to_snake(name: str) -> str:
-    name = sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+    name = sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
 
 def parse_prop_type(prop_type: str, prop: dict[str, Any]) -> (str, str):
@@ -100,45 +105,85 @@ def make_schema(schema: dict[str, Any]) -> (str, str):
 
     return imports, properties
 
+
 def resolve_properties(schema: dict[str, Any]) -> str:
     imports, properties = make_schema(schema)
-    file_schema = EXAMPLE_SCHEMA.format(
+    return EXAMPLE_SCHEMA.format(
         schema_name=schema["title"], properties=properties, imports=imports
     )
-    return file_schema
 
-def resolve_enum(schema: dict[str, Any]) -> str:
-    elements = "\n".join(["    " + elem.upper() for elem in schema["enum"]])
-    file_enum = EXAMPLE_ENUM.format(
-        enum_name=schema["title"],
-        elements=elements
+
+def resolve_enum(model: dict[str, Any]) -> str:
+    elements = "\n".join(["    " + elem.upper() for elem in model["enum"]])
+    return EXAMPLE_ENUM.format(enum_name=model["title"], elements=elements)
+
+
+def resolve_datapage(datapage: dict[str, Any]) -> str:
+    return EXAMPLE_DATAPAGE.format(
+        datapage_name=datapage["title"].replace("[", "").replace("]", ""),
+        datapage_type=resolve_reference(datapage["properties"]["data"]["items"])[1],
     )
-    return file_enum
 
-def resolve_model(schema: dict[str, Any]) -> (str | None, str | None):
-        if "properties" in schema:
-            return schema["title"], resolve_properties(schema)
-        elif "enum" in schema:
-            return schema["title"], resolve_enum(schema)
 
-        print(f"{schema}") # Write a text for it
-        return None, None
+def resolve_model(model: dict[str, Any]) -> str | None:
+    if "properties" in model:
+        if model["title"].startswith("DataPage"):
+            return resolve_datapage(model)
+        else:
+            return resolve_properties(model)
+    elif "enum" in model:
+        return resolve_enum(model)
 
-def write_file_model(file_name: str, file: str) -> None:
+    print(f"{model}")  # TODO: Write a text for it
+    return None
+
+
+def write_file(file_name: str, file: str) -> None:
     with open(MODELS_PATH + file_name + ".py", "w") as f:
         f.write(file)
 
+
 def create_models() -> None:
-    schemas: dict[str, dict] = get(OPENAPI_URL).json()["components"]["schemas"]
+    models: dict[str, dict] = get(OPENAPI_URL).json()["components"]["schemas"]
     imports = ""
 
     rmtree(MODELS_PATH, ignore_errors=True)
     makedirs(MODELS_PATH, exist_ok=True)
 
-    for schema in schemas.values():
-        model_name, file = resolve_model(schema)
+    # Check for models with datapage
+    data_page_models_names = list()
+    data_page_models: dict[str, str] = dict()
+
+    for model_name in models.keys():
+        if model_name.startswith("DataPage_") or f"DataPage_{model_name}_" in models:
+            data_page_models_names.append(model_name)
+
+    for model_name, model in models.items():
+        file = resolve_model(model)
         if file and model_name:
             imports += f"from .{camel_to_snake(model_name)} import {model_name}\n"
-            write_file_model(camel_to_snake(model_name), file)
 
-    write_file_model("__init__", imports)
+            if model_name in data_page_models_names:
+                model_name = model_name.replace("DataPage", "").strip("_")
+                data_page_model = data_page_models.setdefault(
+                    camel_to_snake(model_name), ""
+                )
+
+                if model_name.startswith("DataPage"):
+                    imports += f"from .{camel_to_snake(model_name)} import DataPage{model_name}\n"
+                    data_page_model += file
+                else:
+                    print(model_name)
+                    data_page_model = (
+                        "from src.api.utils import DataPage\n" + file + data_page_model
+                    )
+                data_page_models[camel_to_snake(model_name)] = data_page_model
+            else:
+                # write_file(camel_to_snake(model_name), file)
+                ...
+
+    for file_name in data_page_models.keys():
+        write_file(file_name, data_page_models[file_name])
+
+    # Create __init__ file
+    # write_file_model("__init__", imports)
