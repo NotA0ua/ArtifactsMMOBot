@@ -1,4 +1,7 @@
+from re import sub
 from typing import Any
+from os import makedirs
+from shutil import rmtree
 
 from httpx import get
 
@@ -10,21 +13,28 @@ CHANGED_TYPES = {
     "null": "None",
     "boolean": "bool",
 }
+MODELS_PATH = "./src/api/models/"
 
 EXAMPLE_SCHEMA = """from pydantic import BaseModel
 {imports}
 
 class {schema_name}(BaseModel):
-{properties}"""
+{properties}
+"""
 
 EXAMPLE_ENUM = """
 from enum import StrEnum
 
 class {enum_name}(StrEnum):
-{elements}"""
+{elements}
+"""
+
+def camel_to_snake(name: str) -> str:
+    name = sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
 
-def parse_prop_type(prop_type: str, prop: dict[str, Any]) -> tuple[str, str]:
+def parse_prop_type(prop_type: str, prop: dict[str, Any]) -> (str, str):
     if prop_type in CHANGED_TYPES:
         imports = ""
         if prop_type == "date-time":
@@ -44,7 +54,7 @@ def parse_prop_type(prop_type: str, prop: dict[str, Any]) -> tuple[str, str]:
     return "from typing import Any\n", "Any"
 
 
-def resolve_reference(prop: dict[str, Any]) -> tuple[str, str]:
+def resolve_reference(prop: dict[str, Any]) -> (str, str):
     ref_type = prop["$ref"].split("/")[-1]
     return f"from . import {ref_type}\n", ref_type
 
@@ -63,7 +73,7 @@ def make_type(prop: dict[str, Any]) -> tuple[str, str | None]:
     return "from typing import Any\n", "Any"
 
 
-def make_any_of(prop: dict[str, str | dict]) -> tuple[str, str]:
+def make_any_of(prop: dict[str, str | dict]) -> (str, str):
     imports = ""
     prop_types: list[str] = list()
 
@@ -76,7 +86,7 @@ def make_any_of(prop: dict[str, str | dict]) -> tuple[str, str]:
     return imports, " | ".join(prop_types)
 
 
-def make_schema(schema: dict[str, Any]) -> tuple[str, str]:
+def make_schema(schema: dict[str, Any]) -> (str, str):
     properties = ""
     imports = ""
 
@@ -90,33 +100,45 @@ def make_schema(schema: dict[str, Any]) -> tuple[str, str]:
 
     return imports, properties
 
-def resolve_model_type(schema: dict[str, Any]) -> str | None:
+def resolve_properties(schema: dict[str, Any]) -> str:
+    imports, properties = make_schema(schema)
+    file_schema = EXAMPLE_SCHEMA.format(
+        schema_name=schema["title"], properties=properties, imports=imports
+    )
+    return file_schema
+
+def resolve_enum(schema: dict[str, Any]) -> str:
+    elements = "\n".join(["    " + elem.upper() for elem in schema["enum"]])
+    file_enum = EXAMPLE_ENUM.format(
+        enum_name=schema["title"],
+        elements=elements
+    )
+    return file_enum
+
+def resolve_model(schema: dict[str, Any]) -> (str | None, str | None):
         if "properties" in schema:
-            imports, properties = make_schema(schema)
-            file_schema = EXAMPLE_SCHEMA.format(
-                schema_name=schema["title"], properties=properties, imports=imports
-            )
-            return file_schema
-
+            return schema["title"], resolve_properties(schema)
         elif "enum" in schema:
-            elements = "\n".join(["    " + elem.upper() for elem in schema["enum"]])
-            file_enum = EXAMPLE_ENUM.format(
-                enum_name=schema["title"],
-                elements=elements
-            )
-            return file_enum
+            return schema["title"], resolve_enum(schema)
 
+        print(f"{schema}") # Write a text for it
+        return None, None
 
-        return None
+def write_file_model(file_name: str, file: str) -> None:
+    with open(MODELS_PATH + file_name + ".py", "w") as f:
+        f.write(file)
 
-
-def main() -> None:
+def create_models() -> None:
     schemas: dict[str, dict] = get(OPENAPI_URL).json()["components"]["schemas"]
+    imports = ""
+
+    rmtree(MODELS_PATH, ignore_errors=True)
+    makedirs(MODELS_PATH, exist_ok=True)
+
     for schema in schemas.values():
-        file = resolve_model_type(schema) # get file, filename
-        if file:
-            print(file + "-----------------")
+        model_name, file = resolve_model(schema)
+        if file and model_name:
+            imports += f"from .{camel_to_snake(model_name)} import {model_name}\n"
+            write_file_model(camel_to_snake(model_name), file)
 
-
-
-main()
+    write_file_model("__init__", imports)
