@@ -55,7 +55,7 @@ def parse_prop_type(prop_type: str, prop: dict[str, Any]) -> (str, str):
 
         return imports, f"list{items}"
 
-    print(f"Unsupported property type: {prop_type}")
+    # print(f"Unsupported property type: {prop_type}") TODO: UNCOMENT
     return "from typing import Any\n", "Any"
 
 
@@ -74,7 +74,7 @@ def make_type(prop: dict[str, Any]) -> tuple[str, str | None]:
     elif "allOf" in prop:
         return make_type(prop["allOf"][0])
 
-    print(f"Unhandled property format: {prop}")
+    # print(f"Unhandled property format: {prop}") TODO
     return "from typing import Any\n", "Any"
 
 
@@ -93,17 +93,17 @@ def make_any_of(prop: dict[str, str | dict]) -> (str, str):
 
 def make_schema(schema: dict[str, Any]) -> (str, str):
     properties = ""
-    imports = ""
+    imports = set()
 
     for prop_name, prop in schema["properties"].items():
         prop_imports, prop_type = (
             make_any_of(prop) if "anyOf" in prop else make_type(prop)
         )
-        imports += prop_imports
+        imports.add(prop_imports)
         if prop_type:
             properties += f"    {prop_name}: {prop_type}\n"
 
-    return imports, properties
+    return "".join(imports), properties
 
 
 def resolve_properties(schema: dict[str, Any]) -> str:
@@ -134,7 +134,7 @@ def resolve_model(model: dict[str, Any]) -> str | None:
     elif "enum" in model:
         return resolve_enum(model)
 
-    print(f"{model}")  # TODO: Write a text for it
+    # print(f"{model}")  # TODO: Write a text for it UNCOMENT
     return None
 
 
@@ -164,26 +164,25 @@ def create_models() -> None:
             imports += f"from .{camel_to_snake(model_name)} import {model_name}\n"
 
             if model_name in data_page_models_names:
-                model_name = model_name.replace("DataPage", "").strip("_")
+                new_model_name = model_name.replace("DataPage", "").strip("_")
                 data_page_model = data_page_models.setdefault(
-                    camel_to_snake(model_name), ""
+                    camel_to_snake(new_model_name), ""
                 )
 
                 if model_name.startswith("DataPage"):
-                    imports += f"from .{camel_to_snake(model_name)} import DataPage{model_name}\n"
+                    imports += f"from .{camel_to_snake(new_model_name)} import DataPage{new_model_name}\n"
                     data_page_model += file
                 else:
-                    print(model_name)
                     data_page_model = (
                         "from src.api.utils import DataPage\n" + file + data_page_model
                     )
-                data_page_models[camel_to_snake(model_name)] = data_page_model
+                data_page_models[camel_to_snake(new_model_name)] = data_page_model
             else:
-                # write_file(camel_to_snake(model_name), file)
+                write_file(camel_to_snake(model_name), file)
                 ...
 
     for file_name in data_page_models.keys():
         write_file(file_name, data_page_models[file_name])
 
     # Create __init__ file
-    # write_file_model("__init__", imports)
+    write_file("__init__", imports)
