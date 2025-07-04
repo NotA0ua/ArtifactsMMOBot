@@ -24,6 +24,7 @@ class {schema_name}(BaseModel):
 
 EXAMPLE_ENUM = """from enum import StrEnum
 
+
 class {enum_name}(StrEnum):
 {elements}
 """
@@ -55,7 +56,7 @@ def parse_prop_type(prop_type: str, prop: dict[str, Any]) -> (str, str):
 
         return imports, f"list{items}"
 
-    # print(f"Unsupported property type: {prop_type}") TODO: UNCOMENT
+    print(f"Unsupported property type: {prop_type}")
     return "from typing import Any\n", "Any"
 
 
@@ -74,7 +75,7 @@ def make_type(prop: dict[str, Any]) -> tuple[str, str | None]:
     elif "allOf" in prop:
         return make_type(prop["allOf"][0])
 
-    # print(f"Unhandled property format: {prop}") TODO
+    print(f"Unhandled property format: {prop}")
     return "from typing import Any\n", "Any"
 
 
@@ -92,7 +93,7 @@ def make_any_of(prop: dict[str, str | dict]) -> (str, str):
 
 
 def make_schema(schema: dict[str, Any]) -> (str, str):
-    properties = ""
+    properties = list()
     imports = set()
 
     for prop_name, prop in schema["properties"].items():
@@ -101,9 +102,9 @@ def make_schema(schema: dict[str, Any]) -> (str, str):
         )
         imports.add(prop_imports)
         if prop_type:
-            properties += f"    {prop_name}: {prop_type}\n"
+            properties.append(f"    {prop_name}: {prop_type}")
 
-    return "".join(imports), properties
+    return "".join(imports), "\n".join(properties)
 
 
 def resolve_properties(schema: dict[str, Any]) -> str:
@@ -134,7 +135,7 @@ def resolve_model(model: dict[str, Any]) -> str | None:
     elif "enum" in model:
         return resolve_enum(model)
 
-    # print(f"{model}")  # TODO: Write a text for it UNCOMENT
+    print(f"Unresolved model: {model}")
     return None
 
 
@@ -170,9 +171,11 @@ def create_models() -> None:
 
                 if model_name.startswith("DataPage"):
                     imports += f"from .{camel_to_snake(new_model_name)} import DataPage{new_model_name}\n"
-                    data_page_model += file
+                    data_page_model += "\n\n" + file
                 else:
-                    imports += f"from .{camel_to_snake(model_name)} import {model_name}\n"
+                    imports += (
+                        f"from .{camel_to_snake(model_name)} import {model_name}\n"
+                    )
                     data_page_model = (
                         "from src.api.utils import DataPage\n" + file + data_page_model
                     )
