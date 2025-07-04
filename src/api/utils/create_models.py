@@ -114,7 +114,7 @@ def resolve_properties(schema: dict[str, Any]) -> str:
 
 
 def resolve_enum(model: dict[str, Any]) -> str:
-    elements = "\n".join(["    " + elem.upper() for elem in model["enum"]])
+    elements = "\n".join([f'    {elem.upper()} = "{elem}"' for elem in model["enum"]])
     return EXAMPLE_ENUM.format(enum_name=model["title"], elements=elements)
 
 
