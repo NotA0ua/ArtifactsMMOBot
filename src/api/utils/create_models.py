@@ -161,7 +161,6 @@ def create_models() -> None:
     for model_name, model in models.items():
         file = resolve_model(model)
         if file and model_name:
-            imports += f"from .{camel_to_snake(model_name)} import {model_name}\n"
 
             if model_name in data_page_models_names:
                 new_model_name = model_name.replace("DataPage", "").strip("_")
@@ -173,11 +172,13 @@ def create_models() -> None:
                     imports += f"from .{camel_to_snake(new_model_name)} import DataPage{new_model_name}\n"
                     data_page_model += file
                 else:
+                    imports += f"from .{camel_to_snake(model_name)} import {model_name}\n"
                     data_page_model = (
                         "from src.api.utils import DataPage\n" + file + data_page_model
                     )
                 data_page_models[camel_to_snake(new_model_name)] = data_page_model
             else:
+                imports += f"from .{camel_to_snake(model_name)} import {model_name}\n"
                 write_file(camel_to_snake(model_name), file)
                 ...
 
