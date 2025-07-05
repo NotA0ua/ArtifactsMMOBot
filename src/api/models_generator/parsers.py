@@ -95,7 +95,7 @@ class {enum_name}(StrEnum):
 
 class DataPageSchemaParser(SchemaParser):
     def __init__(self):
-        self.model_template = """from src.api.utils import DataPage
+        self.model_template = """from src.api.datapage import DataPage
 from .{ref_type_snake} import {ref_type}
 
 class {datapage_name}(DataPage):
