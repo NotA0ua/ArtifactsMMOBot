@@ -1,15 +1,20 @@
 import logging
+from re import sub
 from typing import Dict, Any
 
 from src.api.client import HTTPClientProtocol
-from .file_writer import FileWriterProtocol, LocalFileWriter
+from .file import FileWriterProtocol, LocalFileWriter
 from .parsers import ObjectSchemaParser, EnumSchemaParser, DataPageSchemaParser
-from .utils import camel_to_snake
 
 
 class ModelGenerator:
-    def __init__(self, openapi_url: str, models_path: str, http_client: HTTPClientProtocol,
-                 file_writer: FileWriterProtocol):
+    def __init__(
+        self,
+        openapi_url: str,
+        models_path: str,
+        http_client: HTTPClientProtocol,
+        file_writer: FileWriterProtocol,
+    ):
         self.openapi_url = openapi_url
         self.models_path = models_path
         self.http_client = http_client
@@ -29,18 +34,30 @@ class ModelGenerator:
             for model_name, model in models.items():
                 file_content = self._resolve_model(model)
                 if file_content:
-                    snake_name = camel_to_snake(model_name)
-                    self.file_writer.write(f"{self.models_path}/{snake_name}.py", file_content)
+                    snake_name = (
+                        self._camel_to_snake(model_name).rstrip("_").replace("__", "_")
+                    )  # Make a snake name without unnecessary underscores
+                    self.file_writer.write(
+                        f"{self.models_path}/{snake_name}.py", file_content
+                    )
         finally:
             await self.http_client.close()
 
     def _resolve_model(self, model: Dict[str, Any]) -> str | None:
         if "properties" in model:
-            parser = self.parsers["datapage"] if model["title"].startswith("DataPage") else self.parsers["object"]
+            parser = (
+                self.parsers["datapage"]
+                if model["title"].startswith("DataPage")
+                else self.parsers["object"]
+            )
         elif "enum" in model:
             parser = self.parsers["enum"]
         else:
             self.logger.warning(f"Unresolved model: {model}")
             return None
-        imports, content = parser.parse(model)
-        return f"{imports}\n{content}" if imports else content
+        return parser.parse(model)
+
+    @staticmethod
+    def _camel_to_snake(name: str) -> str:
+        name = sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
+        return sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).lower()
