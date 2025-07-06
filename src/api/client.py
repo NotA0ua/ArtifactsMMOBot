@@ -1,12 +1,14 @@
 import httpx
 from typing import Protocol, Dict, Any
 
+
 class HTTPClientProtocol(Protocol):
     async def get(self, url: str) -> Dict[str, Any]:
         pass
 
     async def close(self) -> None:
         pass
+
 
 class AsyncHTTPClient:
     def __init__(self):
@@ -19,4 +21,3 @@ class AsyncHTTPClient:
 
     async def close(self) -> None:
         await self.client.aclose()
-

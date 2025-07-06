@@ -8,7 +8,8 @@ class FileWriterProtocol(Protocol):
 
 
 class LocalFileWriter:
-    def write(self, file_path: str, content: str) -> None:
+    @staticmethod
+    def write(file_path: str, content: str) -> None:
         Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "w") as f:
             f.write(content)
