@@ -1,6 +1,6 @@
 import logging
 from re import sub
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 from src.api.client import HTTPClientProtocol
 from .file import FileWriterProtocol, LocalFileWriter
@@ -24,6 +24,7 @@ class ModelGenerator:
             "enum": EnumSchemaParser(),
             "datapage": DataPageSchemaParser(),
         }
+
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
@@ -31,8 +32,9 @@ class ModelGenerator:
         try:
             openapi = await self.http_client.get(self.openapi_url)
             models = openapi["components"]["schemas"]
+            init_content = list()
             for model_name, model in models.items():
-                file_content = self._resolve_model(model)
+                model_name, file_content = self._resolve_model(model)
                 if file_content:
                     snake_name = (
                         self._camel_to_snake(model_name).rstrip("_").replace("__", "_")
@@ -40,10 +42,16 @@ class ModelGenerator:
                     self.file_writer.write(
                         f"{self.models_path}/{snake_name}.py", file_content
                     )
+
+                    init_content.append(f"from .{snake_name} import {model_name}")
+
+            self.file_writer.write(
+                f"{self.models_path}/__init__.py", "\n".join(init_content)
+            )
         finally:
             await self.http_client.close()
 
-    def _resolve_model(self, model: Dict[str, Any]) -> str | None:
+    def _resolve_model(self, model: Dict[str, Any]) -> Tuple[str, str] | None:
         if "properties" in model:
             parser = (
                 self.parsers["datapage"]

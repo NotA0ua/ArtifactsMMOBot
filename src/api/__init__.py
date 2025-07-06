@@ -1,1 +1,1 @@
-from .client import AsyncHTTPClient
+from .client import AsyncHTTPXClient

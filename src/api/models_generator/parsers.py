@@ -6,7 +6,7 @@ from typing import Dict, Any, Tuple
 
 class SchemaParser(ABC):
     @abstractmethod
-    def parse(self, schema: Dict[str, Any]) -> str:
+    def parse(self, schema: Dict[str, Any]) -> Tuple[str, str]:
         pass
 
     @staticmethod
@@ -24,6 +24,10 @@ class ObjectSchemaParser(SchemaParser):
             "null": "None",
             "boolean": "bool",
         }
+
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
+
         self.model_template = """from pydantic import BaseModel
 {imports}
 
@@ -31,9 +35,9 @@ class {schema_name}(BaseModel):
 {properties}
 """
 
-    def parse(self, schema: Dict[str, Any]) -> str:
+    def parse(self, schema: Dict[str, Any]) -> Tuple[str, str]:
         imports, properties = self._make_schema(schema)
-        return self.model_template.format(
+        return schema["title"], self.model_template.format(
             schema_name=schema["title"], imports=imports, properties=properties
         )
 
@@ -57,7 +61,7 @@ class {schema_name}(BaseModel):
         elif "allOf" in prop:
             return self._make_type(prop["allOf"][0])
 
-        logging.warning(f"Unhandled property format: {prop}")
+        self.logger.warning(f"Unhandled property format: {prop}")
         return "from typing import Any\n", "Any"
 
     def _parse_prop_type(self, prop_type: str, prop: Dict[str, Any]) -> Tuple[str, str]:
@@ -71,7 +75,7 @@ class {schema_name}(BaseModel):
             return "from typing import List\n" + imports, (
                 f"List[{items}]" if items else "list"
             )
-        logging.warning(f"Unsupported property type: {prop_type}")
+        self.logger.warning(f"Unsupported property type: {prop_type}")
         return "from typing import Any\n", "Any"
 
     def _resolve_reference(self, prop: Dict[str, Any]) -> Tuple[str, str]:
@@ -98,11 +102,11 @@ class {enum_name}(StrEnum):
 {elements}
 """
 
-    def parse(self, schema: Dict[str, Any]) -> str:
+    def parse(self, schema: Dict[str, Any]) -> Tuple[str, str]:
         elements = "\n".join(
             [f'    {elem.upper()} = "{elem}"' for elem in schema["enum"]]
         )
-        return self.model_template.format(enum_name=schema["title"], elements=elements)
+        return schema["title"], self.model_template.format(enum_name=schema["title"], elements=elements)
 
 
 class DataPageSchemaParser(SchemaParser):
@@ -114,11 +118,11 @@ class {datapage_name}(DataPage):
     data: list[{ref_type}]
 """
 
-    def parse(self, schema: Dict[str, Any]) -> str:
+    def parse(self, schema: Dict[str, Any]) -> Tuple[str, str]:
         ref_type = schema["properties"]["data"]["items"]["$ref"].split("/")[-1]
         ref_type_snake = self._camel_to_snake(ref_type)
         datapage_name = schema["title"].replace("[", "").replace("]", "")
-        return self.model_template.format(
+        return datapage_name, self.model_template.format(
             datapage_name=datapage_name,
             ref_type=ref_type,
             ref_type_snake=ref_type_snake,
