@@ -1,10 +1,10 @@
 [project]
 name = "artifactsmmobot"
-version = "0.0.12"
+version = "0.0.13"
 description = "A telegram bot for ArtifactsMMO"
 requires-python = ">=3.13"
 dependencies = [
-    "aiogram>=3.20.0.post0",
+    "aiogram>=3.21.0",
     "httpx>=0.28.1",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.10.1",
