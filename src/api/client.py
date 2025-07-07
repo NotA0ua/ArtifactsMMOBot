@@ -1,10 +1,11 @@
 import logging
 
 import httpx
-from typing import Protocol, Dict, Any, Type
+from typing import Protocol, Dict, Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
+T = TypeVar("T", bound=BaseModel)
 
 class HTTPClientProtocol(Protocol):
     url: str
@@ -13,8 +14,8 @@ class HTTPClientProtocol(Protocol):
         pass
 
     async def post(
-        self, endpoint: str, data: Dict[str, Any], response_model: Type[BaseModel]
-    ) -> BaseModel:
+        self, endpoint: str, data: Dict[str, Any], response_model: Generic[T]
+    ) -> T:
         pass
 
     async def close(self) -> None:
@@ -34,8 +35,8 @@ class AsyncHTTPXClient:
         return response.json()
 
     async def post(
-        self, endpoint: str, data: Dict[str, Any], response_model: Type[BaseModel]
-    ) -> BaseModel:
+            self, endpoint: str, data: Dict[str, Any], response_model: Generic[T]
+    ) -> T:
         response = await self.client.post(self.url + endpoint, json=data)
         response.raise_for_status()
         return response_model(**response.json())
