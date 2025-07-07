@@ -1,6 +1,6 @@
 import logging
 from re import sub
-from typing import Dict, Any, Tuple
+from typing import Any
 
 from src.api.client import HTTPClientProtocol
 from .file import FileWriterProtocol, LocalFileWriter
@@ -51,7 +51,7 @@ class ModelGenerator:
         finally:
             await self.http_client.close()
 
-    def _resolve_model(self, model: Dict[str, Any]) -> Tuple[str, str] | None:
+    def _resolve_model(self, model: dict[str, Any]) -> (str, str):
         if "properties" in model:
             parser = (
                 self.parsers["datapage"]
@@ -62,7 +62,7 @@ class ModelGenerator:
             parser = self.parsers["enum"]
         else:
             self.logger.warning(f"Unresolved model: {model}")
-            return None
+            return None, None
         return parser.parse(model)
 
     @staticmethod
