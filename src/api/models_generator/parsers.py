@@ -25,7 +25,6 @@ class ObjectSchemaParser(SchemaParser):
             "boolean": "bool",
         }
 
-        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
         self.model_template = """from pydantic import BaseModel
@@ -106,7 +105,9 @@ class {enum_name}(StrEnum):
         elements = "\n".join(
             [f'    {elem.upper()} = "{elem}"' for elem in schema["enum"]]
         )
-        return schema["title"], self.model_template.format(enum_name=schema["title"], elements=elements)
+        return schema["title"], self.model_template.format(
+            enum_name=schema["title"], elements=elements
+        )
 
 
 class DataPageSchemaParser(SchemaParser):

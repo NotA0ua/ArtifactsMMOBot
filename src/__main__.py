@@ -1,15 +1,20 @@
 import asyncio
+
+from src.api.character import Character
+from src.api.characters import Characters
+from src.api.models import AddCharacterSchema, CharacterSkin, DestinationSchema
 from src.api.models_generator import ModelGenerator, LocalFileWriter
 from src.api import AsyncHTTPXClient
 from src.config import settings
 
 ARTIFACTS_URL = "https://api.artifactsmmo.com/"
 
+
 async def main():
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "Authorization": f"Bearer {settings.artifacts_token}"
+        "Authorization": f"Bearer {settings.artifacts_token}",
     }
 
     http_client_auth = AsyncHTTPXClient(ARTIFACTS_URL, headers)

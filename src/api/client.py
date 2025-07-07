@@ -1,14 +1,20 @@
+import logging
+
 import httpx
-from typing import Protocol, Dict, Any
+from typing import Protocol, Dict, Any, Type
+
+from pydantic import BaseModel
 
 
 class HTTPClientProtocol(Protocol):
     url: str
 
-    async def get(self, url: str) -> Dict[str, Any]:
+    async def get(self, endpoint: str) -> Dict[str, Any]:
         pass
 
-    async def post(self, url: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def post(
+        self, endpoint: str, data: Dict[str, Any], response_model: Type[BaseModel]
+    ) -> BaseModel:
         pass
 
     async def close(self) -> None:
@@ -20,16 +26,19 @@ class AsyncHTTPXClient:
         self.client = httpx.AsyncClient()
         self.client.headers = headers
         self.url = url
+        self.logger = logging.getLogger(__name__)
 
-    async def get(self, url: str) -> Dict[str, Any]:
-        response = await self.client.get(self.url + url)
+    async def get(self, endpoint: str) -> Dict[str, Any]:
+        response = await self.client.get(self.url + endpoint)
         response.raise_for_status()
         return response.json()
 
-    async def post(self, url: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        response = await self.client.post(self.url + url, data=data)
+    async def post(
+        self, endpoint: str, data: Dict[str, Any], response_model: Type[BaseModel]
+    ) -> BaseModel:
+        response = await self.client.post(self.url + endpoint, json=data)
         response.raise_for_status()
-        return response.json()
+        return response_model(**response.json())
 
     async def close(self) -> None:
         await self.client.aclose()
