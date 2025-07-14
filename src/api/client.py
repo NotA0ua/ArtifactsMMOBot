@@ -1,7 +1,7 @@
 import logging
 
 import httpx
-from typing import Protocol, Dict, Any, Generic, TypeVar, Type
+from typing import Protocol, Any, TypeVar, Type
 
 from pydantic import BaseModel
 
