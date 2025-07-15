@@ -2,9 +2,13 @@ import logging
 from re import sub
 from typing import Any
 
+from .models_generator.file import FileWriterProtocol, LocalFileWriter
 from src.api.client import HTTPClientProtocol
-from .file import FileWriterProtocol, LocalFileWriter
-from .parsers import ObjectSchemaParser, EnumSchemaParser, DataPageSchemaParser
+from .models_generator.parsers import (
+    ObjectSchemaParser,
+    EnumSchemaParser,
+    DataPageSchemaParser,
+)
 
 
 class ModelGenerator:
@@ -35,10 +39,10 @@ class ModelGenerator:
             init_content = list()
             for model_name, model in models.items():
                 model_name, file_content = self._resolve_model(model)
-                if file_content:
+                if file_content and model_name:
                     snake_name = (
                         self._camel_to_snake(model_name).rstrip("_").replace("__", "_")
-                    )  # Make a snake name without unnecessary underscores
+                    )  # Make a snake case name without unnecessary underscores
                     self.file_writer.write(
                         f"{self.models_path}/{snake_name}.py", file_content
                     )
@@ -51,7 +55,7 @@ class ModelGenerator:
         finally:
             await self.http_client.close()
 
-    def _resolve_model(self, model: dict[str, Any]) -> (str, str):
+    def _resolve_model(self, model: dict[str, Any]) -> tuple[str | None, str | None]:
         if "properties" in model:
             parser = (
                 self.parsers["datapage"]

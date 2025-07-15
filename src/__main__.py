@@ -1,7 +1,7 @@
 import asyncio
 
 from src.api import AsyncHTTPXClient
-from src.api.models_generator import ModelGenerator, LocalFileWriter
+from src.api.generators import ModelGenerator, LocalFileWriter
 from src.config import settings
 
 ARTIFACTS_URL = "https://api.artifactsmmo.com/"
