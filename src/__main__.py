@@ -1,7 +1,7 @@
 import asyncio
 
 from src.api import AsyncHTTPXClient
-from src.api.generators import ModelGenerator, LocalFileWriter
+from src.api.generators import OpenAPIGenerator, LocalFileWriter
 from src.config import settings
 
 ARTIFACTS_URL = "https://api.artifactsmmo.com/"
@@ -17,9 +17,8 @@ async def main():
     http_client_auth = AsyncHTTPXClient(ARTIFACTS_URL, headers)
     http_client_without_auth = AsyncHTTPXClient(ARTIFACTS_URL)
 
-    generator = ModelGenerator(
+    generator = OpenAPIGenerator(
         openapi_url="openapi.json",
-        models_path="./src/api/models",
         http_client=http_client_without_auth,
         file_writer=LocalFileWriter(),
     )

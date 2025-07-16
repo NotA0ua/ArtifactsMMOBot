@@ -2,7 +2,7 @@ import logging
 from re import sub
 from typing import Any
 
-from .models_generator.file import FileWriterProtocol, LocalFileWriter
+from .file import FileWriterProtocol, LocalFileWriter
 from src.api.client import HTTPClientProtocol
 from .models_generator.parsers import (
     ObjectSchemaParser,
@@ -11,16 +11,18 @@ from .models_generator.parsers import (
 )
 
 
-class ModelGenerator:
-    def __init__(
+class OpenAPIGenerator:
+    async def __init__(
         self,
         openapi_url: str,
-        models_path: str,
         http_client: HTTPClientProtocol,
         file_writer: FileWriterProtocol,
+        models_path: str = "./src/api/models",
+        endpoints_path: str = "./src/api/endpoints",
     ):
-        self.openapi_url = openapi_url
+        self.openapi = await self.http_client.get(openapi_url)
         self.models_path = models_path
+        self.endpoints_path = endpoints_path
         self.http_client = http_client
         self.file_writer = file_writer
         self.parsers = {
@@ -34,10 +36,9 @@ class ModelGenerator:
 
     async def generate_models(self) -> None:
         try:
-            openapi = await self.http_client.get(self.openapi_url)
-            models = openapi["components"]["schemas"]
+            models = self.openapi["components"]["schemas"]
             init_content = list()
-            for model_name, model in models.items():
+            for model in models.values():
                 model_name, file_content = self._resolve_model(model)
                 if file_content and model_name:
                     snake_name = (
@@ -51,6 +52,29 @@ class ModelGenerator:
 
             self.file_writer.write(
                 f"{self.models_path}/__init__.py", "\n".join(init_content)
+            )
+        finally:
+            await self.http_client.close()
+
+    async def generate_endpoints(self) -> None:
+        try:
+            models = self.openapi["paths"]
+            init_content = list()
+            for endpoint_name, endpoint in models.items():
+                endpoint_name, file_content = (
+                    endpoint  # TODO: Make a method for creating endpoints
+                )
+                if file_content and endpoint_name:
+                    # TODO: snake_name
+                    snake_name = "nothing"
+                    self.file_writer.write(
+                        f"{self.endpoints_path}/{snake_name}.py", file_content
+                    )
+
+                    init_content.append(f"from .{snake_name} import {endpoint_name}")
+
+            self.file_writer.write(
+                f"{self.endpoints_path}/__init__.py", "\n".join(init_content)
             )
         finally:
             await self.http_client.close()
