@@ -14,12 +14,11 @@ async def main():
         "Authorization": f"Bearer {settings.artifacts_token}",
     }
 
-    http_client_auth = AsyncHTTPXClient(ARTIFACTS_URL, headers)
-    http_client_without_auth = AsyncHTTPXClient(ARTIFACTS_URL)
+    http_client = AsyncHTTPXClient(ARTIFACTS_URL, headers)
 
     generator = OpenAPIGenerator(
         openapi_url="openapi.json",
-        http_client=http_client_without_auth,
+        http_client=http_client,
         file_writer=LocalFileWriter(),
     )
 

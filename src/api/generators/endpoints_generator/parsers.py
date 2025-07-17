@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod
 from re import sub
 from typing import Any
+import logging
 
 
 class EndpointParser:
@@ -15,11 +15,24 @@ class EndpointParser:
 
         self.logger = logging.getLogger(__name__)
 
-        self.model_template = """from pydantic import BaseModel
-{imports}
+        self.model_template = """from src.api.client import HTTPClientProtocol
+from src.api.models import {models}
 
-class {schema_name}(BaseModel):
-{properties}
+
+class {endpoint_name}:
+    def __init__(self, http_client: HTTPClientProtocol, endpoint_arg: str) -> None:
+        self.character_name = character_name
+        self.http_client = http_client
+
+    {methonds}
+
+"""
+        self.method_template = """async def {methond_name}(
+        self, schema: {schema}
+    ) -> {return_type}:
+        return await self.http_client.{request_type}(
+            "{endpoint}", schema.model_dump(), {return_type}
+        )
 """
 
     def parse(self, schema: dict[str, Any]) -> tuple[str, str]:

@@ -25,8 +25,7 @@ class HTTPClientProtocol(Protocol):
 
 class AsyncHTTPXClient:
     def __init__(self, url: str, headers: dict[str, str] | None = None) -> None:
-        self.client = httpx.AsyncClient()
-        self.client.headers = headers
+        self.client = httpx.AsyncClient(headers=headers)
         self.url = url
         self.logger = logging.getLogger(__name__)
 
