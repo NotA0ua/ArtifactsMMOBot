@@ -39,6 +39,8 @@ class {endpoint_name}:
         imports, properties = self._make_schema(endpoint)
         return endpoint["title"], self.endpoint_template.format()
 
+    def _make_endpoint
+
     @staticmethod
     def _camel_to_snake(name: str) -> str:
         name = sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
