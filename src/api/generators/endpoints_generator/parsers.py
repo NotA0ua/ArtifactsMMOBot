@@ -15,7 +15,7 @@ class EndpointParser:
 
         self.logger = logging.getLogger(__name__)
 
-        self.model_template = """from src.api.client import HTTPClientProtocol
+        self.endpoint_template = """from src.api.client import HTTPClientProtocol
 from src.api.models import {models}
 
 
@@ -35,11 +35,9 @@ class {endpoint_name}:
         )
 """
 
-    def parse(self, schema: dict[str, Any]) -> tuple[str, str]:
-        imports, properties = self._make_schema(schema)
-        return schema["title"], self.model_template.format(
-            schema_name=schema["title"], imports=imports, properties=properties
-        )
+    def parse(self, endpoint: dict[str, Any]) -> tuple[str, str]:
+        imports, properties = self._make_schema(endpoint)
+        return endpoint["title"], self.endpoint_template.format()
 
     @staticmethod
     def _camel_to_snake(name: str) -> str:
