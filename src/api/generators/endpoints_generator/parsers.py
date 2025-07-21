@@ -24,7 +24,7 @@ class {endpoint_name}:
         self.character_name = character_name
         self.http_client = http_client
 
-    {methonds}
+    {methods}
 
 """
         self.method_template = """async def {methond_name}(
@@ -39,7 +39,8 @@ class {endpoint_name}:
         imports, properties = self._make_schema(endpoint)
         return endpoint["title"], self.endpoint_template.format()
 
-    def _make_endpoint
+    def _make_endpoint() -> imports:
+
 
     @staticmethod
     def _camel_to_snake(name: str) -> str:

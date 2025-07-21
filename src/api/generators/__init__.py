@@ -4,11 +4,13 @@ from typing import Any
 
 from .file import FileWriterProtocol, LocalFileWriter
 from src.api.client import HTTPClientProtocol
-from .models_generator.parsers import (
+from .models_generator import (
     ObjectSchemaParser,
     EnumSchemaParser,
     DataPageSchemaParser,
 )
+
+from .endpoints_generator import EndpointParser
 
 
 class OpenAPIGenerator:
@@ -29,6 +31,7 @@ class OpenAPIGenerator:
             "object": ObjectSchemaParser(),
             "enum": EnumSchemaParser(),
             "datapage": DataPageSchemaParser(),
+            "endpoint": EndpointParser(),
         }
 
         logging.basicConfig(level=logging.INFO)
@@ -61,12 +64,9 @@ class OpenAPIGenerator:
             models = self.openapi["paths"]
             init_content = list()
             for endpoint_name, endpoint in models.items():
-                endpoint_name, file_content = (
-                    endpoint  # TODO: Make a method for creating endpoints
-                )
+                endpoint_name, file_content = self.parsers["endpoint"].parse(endpoint)
                 if file_content and endpoint_name:
                     # TODO: snake_name
-                    snake_name = "nothing"
                     self.file_writer.write(
                         f"{self.endpoints_path}/{snake_name}.py", file_content
                     )
