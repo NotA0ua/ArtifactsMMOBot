@@ -60,6 +60,18 @@ class OpenAPIGenerator:
             await self.http_client.close()
 
     async def generate_endpoints(self) -> None:
+        endpoint_template = """from src.api.client import HTTPClientProtocol
+from src.api.models import {models}
+
+
+class {endpoint_name}:
+    def __init__(self, http_client: HTTPClientProtocol, {endpoint_args}) -> None:
+        self.http_client = http_client
+        {endpoint_self_args}
+
+    {methods}
+
+"""
         try:
             models = self.openapi["paths"]
             init_content = list()

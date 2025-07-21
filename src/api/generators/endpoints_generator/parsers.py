@@ -15,32 +15,27 @@ class EndpointParser:
 
         self.logger = logging.getLogger(__name__)
 
-        self.endpoint_template = """from src.api.client import HTTPClientProtocol
-from src.api.models import {models}
-
-
-class {endpoint_name}:
-    def __init__(self, http_client: HTTPClientProtocol, endpoint_arg: str) -> None:
-        self.character_name = character_name
-        self.http_client = http_client
-
-    {methods}
-
-"""
-        self.method_template = """async def {methond_name}(
+        self.method_template = """async def {method_name}(
         self, schema: {schema}
     ) -> {return_type}:
-        return await self.http_client.{request_type}(
+        return await self.http_client.{http_method}(
             "{endpoint}", schema.model_dump(), {return_type}
         )
 """
 
-    def parse(self, endpoint: dict[str, Any]) -> tuple[str, str]:
-        imports, properties = self._make_schema(endpoint)
-        return endpoint["title"], self.endpoint_template.format()
+    def parse(
+        self, endpoint: dict[str, Any]
+    ) -> tuple[str, str, str]:  # name, method, imports
+        imports, properties = self._make_endpoint(endpoint)
+        return (
+            self._camel_to_snake(endpoint["title"]),
+            imports,
+            self.method_template.format(
+                method_name="", schema="", return_type="", http_method="", endpoint=""
+            ),
+        )
 
-    def _make_endpoint() -> imports:
-
+    def _make_endpoint(self, endpoint: dict[str, Any]) -> tuple[str, ...]: ...
 
     @staticmethod
     def _camel_to_snake(name: str) -> str:
