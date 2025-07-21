@@ -1,17 +1,6 @@
 import logging
-from abc import ABC, abstractmethod
-from re import sub
 from typing import Any
-
-
-class SchemaParser(ABC):
-    @abstractmethod
-    def parse(self, schema: dict[str, Any]) -> tuple[str, str]: ...
-
-    @staticmethod
-    def _camel_to_snake(name: str) -> str:
-        name = sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
-        return sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).lower()
+from .parser import SchemaParser
 
 
 class ObjectSchemaParser(SchemaParser):
@@ -88,40 +77,3 @@ class {schema_name}(BaseModel):
             if item_type:
                 prop_types.append(item_type)
         return "\n".join(sorted(set(imports))), " | ".join(prop_types)
-
-
-class EnumSchemaParser(SchemaParser):
-    def __init__(self):
-        self.model_template = """from enum import StrEnum
-
-class {enum_name}(StrEnum):
-{elements}
-"""
-
-    def parse(self, schema: dict[str, Any]) -> tuple[str, str]:
-        elements = "\n".join(
-            [f'    {elem.upper()} = "{elem}"' for elem in schema["enum"]]
-        )
-        return schema["title"], self.model_template.format(
-            enum_name=schema["title"], elements=elements
-        )
-
-
-class DataPageSchemaParser(SchemaParser):
-    def __init__(self):
-        self.model_template = """from src.api.models_generator.datapage import DataPage
-from .{ref_type_snake} import {ref_type}
-
-class {datapage_name}(DataPage):
-    data: list[{ref_type}]
-"""
-
-    def parse(self, schema: dict[str, Any]) -> tuple[str, str]:
-        ref_type = schema["properties"]["data"]["items"]["$ref"].split("/")[-1]
-        ref_type_snake = self._camel_to_snake(ref_type)
-        datapage_name = schema["title"].replace("[", "").replace("]", "")
-        return datapage_name, self.model_template.format(
-            datapage_name=datapage_name,
-            ref_type=ref_type,
-            ref_type_snake=ref_type_snake,
-        )
