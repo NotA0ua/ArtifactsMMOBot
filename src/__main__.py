@@ -23,6 +23,7 @@ async def main():
     )
 
     await generator.generate_models()
+    await generator.generate_endpoints()
 
 
 if __name__ == "__main__":

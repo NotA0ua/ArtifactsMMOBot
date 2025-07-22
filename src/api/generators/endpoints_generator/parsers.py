@@ -15,27 +15,53 @@ class EndpointParser:
 
         self.logger = logging.getLogger(__name__)
 
-        self.method_template = """async def {method_name}(
-        self, schema: {schema}
+        self.method_template = '''async def {method_name}(
+        self{schema}
     ) -> {return_type}:
-        return await self.http_client.{http_method}(
-            "{endpoint}", schema.model_dump(), {return_type}
+        """{description}"""
+        request = await self.http_client.{http_method}(
+            "{endpoint_path}"{request_body}
         )
-"""
+'''
 
     def parse(
-        self, endpoint: dict[str, Any]
-    ) -> tuple[str, str, str]:  # name, method, imports
-        imports, properties = self._make_endpoint(endpoint)
+        self, endpoint_path: str, endpoint: dict[str, Any]
+    ) -> tuple[str, list[str], str]:  # name, method, imports
+        method_name = self._camel_to_snake(endpoint_path.split("/")[-1])
+
+        imports, schema, description, http_method = self._make_endpoint(endpoint)
+
+        request_body = ',\nschema.mode.model_dump(mode="json")' if schema else ""
+
         return (
-            self._camel_to_snake(endpoint["title"]),
+            self._camel_to_snake(endpoint["tags"][0]),
             imports,
             self.method_template.format(
-                method_name="", schema="", return_type="", http_method="", endpoint=""
+                method_name=method_name,
+                schema=schema,
+                description=description,
+                http_method=http_method,
+                endpoint_path=endpoint_path,
+                request_body=request_body,
             ),
         )
 
-    def _make_endpoint(self, endpoint: dict[str, Any]) -> tuple[str, ...]: ...
+    def _make_endpoint(
+        self, endpoint: dict[str, Any]
+    ) -> tuple[list[str], str, str, str]:
+        http_method = list(endpoint.keys())[0]
+        endpoint = endpoint[http_method]
+        schema = (
+            ", schema: "
+            + endpoint["requestBody"]["content"]["application/json"]["schema"][
+                "$ref"
+            ].split("/")[-1]
+            if "requestBody" in endpoint
+            else ""
+        )
+        imports = [schema]
+        description = endpoint["description"]
+        return imports, schema, description, http_method
 
     @staticmethod
     def _camel_to_snake(name: str) -> str:
