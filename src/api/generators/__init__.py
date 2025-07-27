@@ -15,15 +15,15 @@ from .endpoints_generator import EndpointParser
 
 
 class OpenAPIGenerator:
-    async def __init__(
+    def __init__(
         self,
-        openapi_url: str,
+        openapi: Any,
         http_client: HTTPClientProtocol,
         file_writer: FileWriterProtocol,
         models_path: str = "./src/api/models",
         endpoints_path: str = "./src/api/endpoints",
-    ):
-        self.openapi = await self.http_client.get(openapi_url)
+    ) -> None:
+        self.openapi = openapi
         self.models_path = models_path
         self.endpoints_path = endpoints_path
         self.http_client = http_client
@@ -37,6 +37,18 @@ class OpenAPIGenerator:
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
+
+    @classmethod
+    async def create_generator(
+        cls,
+        http_client: HTTPClientProtocol,
+        file_writer: FileWriterProtocol,
+        openapi_url: str = "openapi.json",
+        models_path: str = "./src/api/models",
+        endpoints_path: str = "./src/api/endpoints",
+    ):
+        openapi = await http_client.get(openapi_url)
+        return cls(openapi[1], http_client, file_writer, models_path, endpoints_path)
 
     async def generate_models(self) -> None:
         try:

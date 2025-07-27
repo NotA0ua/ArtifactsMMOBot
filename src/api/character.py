@@ -11,6 +11,6 @@ class Character:
     async def move(
         self, destination_schema: DestinationSchema
     ) -> CharacterMovementResponseSchema:
-        return await self.http_client.post(
+        await self.http_client.post(
             "move", destination_schema.model_dump(), CharacterMovementResponseSchema
         )

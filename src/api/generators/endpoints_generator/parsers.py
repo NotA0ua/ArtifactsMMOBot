@@ -26,7 +26,7 @@ class EndpointParser:
 
     def parse(
         self, endpoint_path: str, endpoint: dict[str, Any]
-    ) -> tuple[str, list[str], str]:  # name, method, imports
+    ) -> tuple[str, list[str], str]:  # tag, method, imports
         method_name = self._camel_to_snake(endpoint_path.split("/")[-1])
 
         imports, schema, description, http_method = self._make_endpoint(endpoint)
@@ -51,15 +51,18 @@ class EndpointParser:
     ) -> tuple[list[str], str, str, str]:
         http_method = list(endpoint.keys())[0]
         endpoint = endpoint[http_method]
-        schema = (
-            ", schema: "
-            + endpoint["requestBody"]["content"]["application/json"]["schema"][
+        imports = list()
+
+        schema = ""
+        if "requestBody" in endpoint:
+            schema = endpoint["requestBody"]["content"]["application/json"]["schema"][
                 "$ref"
             ].split("/")[-1]
-            if "requestBody" in endpoint
-            else ""
-        )
-        imports = [schema]
+
+            imports.append(schema)
+
+            schema = ", schema: " + schema
+
         description = endpoint["description"]
         return imports, schema, description, http_method
 
