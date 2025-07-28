@@ -20,7 +20,7 @@ class EndpointParser:
                 return "{description}"{reference}
         """
 
-        self.method_template = '''async def {method_name}(
+        self.method_template = '''  async def {method_name}(
         self{schema}
     ) -> {return_type}:
         """{description}"""
@@ -29,7 +29,7 @@ class EndpointParser:
         )
 
         match status_code:
-            {status_codes}
+ {status_codes}
             case _:
                 return "Unknown status code."
 '''
@@ -65,8 +65,6 @@ class EndpointParser:
         http_method = list(endpoint.keys())[0]
         endpoint = endpoint[http_method]
 
-        description = endpoint["description"]
-
         schema = ""
         reference_imports = list()
 
@@ -78,6 +76,8 @@ class EndpointParser:
         status_codes_imports, status_codes = self._get_status_codes(
             endpoint["responses"]
         )
+
+        description = endpoint["description"]
 
         return (
             reference_imports + status_codes_imports,

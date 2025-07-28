@@ -18,7 +18,6 @@ class OpenAPIGenerator:
     def __init__(
         self,
         openapi: Any,
-        http_client: HTTPClientProtocol,
         file_writer: FileWriterProtocol,
         models_path: str = "./src/api/models",
         endpoints_path: str = "./src/api/endpoints",
@@ -26,7 +25,6 @@ class OpenAPIGenerator:
         self.openapi = openapi
         self.models_path = models_path
         self.endpoints_path = endpoints_path
-        self.http_client = http_client
         self.file_writer = file_writer
         self.parsers = {
             "object": ObjectSchemaParser(),
@@ -48,29 +46,27 @@ class OpenAPIGenerator:
         endpoints_path: str = "./src/api/endpoints",
     ):
         openapi = await http_client.get(openapi_url)
-        return cls(openapi[1], http_client, file_writer, models_path, endpoints_path)
+        await http_client.close()
+        return cls(openapi[1], file_writer, models_path, endpoints_path)
 
     async def generate_models(self) -> None:
-        try:
-            models = self.openapi["components"]["schemas"]
-            init_content = list()
-            for model in models.values():
-                model_name, file_content = self._resolve_model(model)
-                if file_content and model_name:
-                    snake_name = (
-                        self._camel_to_snake(model_name).rstrip("_").replace("__", "_")
-                    )  # Make a snake case name without unnecessary underscores
-                    self.file_writer.write(
-                        f"{self.models_path}/{snake_name}.py", file_content
-                    )
+        models = self.openapi["components"]["schemas"]
+        init_content = list()
+        for model in models.values():
+            model_name, file_content = self._resolve_model(model)
+            if file_content and model_name:
+                snake_name = (
+                    self._camel_to_snake(model_name).rstrip("_").replace("__", "_")
+                )  # Make a snake case name without unnecessary underscores
+                self.file_writer.write(
+                    f"{self.models_path}/{snake_name}.py", file_content
+                )
 
-                    init_content.append(f"from .{snake_name} import {model_name}")
+                init_content.append(f"from .{snake_name} import {model_name}")
 
-            self.file_writer.write(
-                f"{self.models_path}/__init__.py", "\n".join(init_content)
-            )
-        finally:
-            await self.http_client.close()
+        self.file_writer.write(
+            f"{self.models_path}/__init__.py", "\n".join(init_content)
+        )
 
     async def generate_endpoints(self) -> None:
         endpoint_template = """from src.api.client import HTTPClientProtocol
@@ -83,26 +79,26 @@ class {endpoint_name}:
         {endpoint_self_args}
 
     {methods}
-
 """
-        try:
-            models = self.openapi["paths"]
-            init_content = list()
-            for endpoint_name, endpoint in models.items():
-                endpoint_name, file_content = self.parsers["endpoint"].parse(endpoint)
-                if file_content and endpoint_name:
-                    # TODO: snake_name
-                    self.file_writer.write(
-                        f"{self.endpoints_path}/{snake_name}.py", file_content
-                    )
+        endpoints = self.openapi["paths"]
+        init_content = list()
+        endpoint_tags = dict()
 
-                    init_content.append(f"from .{snake_name} import {endpoint_name}")
-
-            self.file_writer.write(
-                f"{self.endpoints_path}/__init__.py", "\n".join(init_content)
+        for endpoint_path, endpoint in endpoints.items():
+            tag, imports, method = self.parsers["endpoint"].parse(
+                endpoint_path, endpoint
             )
-        finally:
-            await self.http_client.close()
+
+            new_endpoint_tags = endpoint_tags.setdefault(tag, [[], ""])
+            new_endpoint_tags[0].append(imports)
+            new_endpoint_tags[1] += method
+            endpoint_tags[tag] = new_endpoint_tags
+
+        # for tag, content in endpoint_tags.items():
+
+        self.file_writer.write(
+            f"{self.endpoints_path}/__init__.py", "\n".join(init_content)
+        )
 
     def _resolve_model(self, model: dict[str, Any]) -> tuple[str | None, str | None]:
         if "properties" in model:
