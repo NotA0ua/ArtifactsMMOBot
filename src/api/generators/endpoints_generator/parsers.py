@@ -2,6 +2,8 @@ from re import sub
 from typing import Any
 import logging
 
+from src.api.generators.object_parser import ObjectParser
+
 
 class EndpointParser:
     def __init__(self):
@@ -14,6 +16,7 @@ class EndpointParser:
         }
 
         self.logger = logging.getLogger(__name__)
+        self.object_parser = ObjectParser()
 
         self.status_codes_template = """            case {status_code}:
 
@@ -21,11 +24,11 @@ class EndpointParser:
         """
 
         self.method_template = '''  async def {method_name}(
-        self{schema}
+        self{args}
     ) -> {return_type}:
         """{description}"""
         status_code, response = await self.http_client.{http_method}(
-            "{endpoint_path}"{request_body}
+            f"{endpoint_path}"{request_body}
         )
 
         match status_code:
@@ -39,7 +42,7 @@ class EndpointParser:
     ) -> tuple[str, list[str | None], str]:  # tag, imports, method
         method_name = self._camel_to_snake(endpoint_path.split("/")[-1])
 
-        imports, schema, description, http_method, status_codes = self._make_endpoint(
+        imports, args, description, http_method, status_codes = self._parse_endpoint(
             endpoint
         )
 
@@ -50,7 +53,7 @@ class EndpointParser:
             imports,
             self.method_template.format(
                 method_name=method_name,
-                schema=schema,
+                args=args,
                 description=description,
                 http_method=http_method,
                 endpoint_path=endpoint_path,
@@ -59,7 +62,7 @@ class EndpointParser:
             ),
         )
 
-    def _make_endpoint(
+    def _parse_endpoint(
         self, endpoint: dict[str, Any]
     ) -> tuple[list[str | None], str, str, str, str]:
         http_method = list(endpoint.keys())[0]
@@ -69,11 +72,11 @@ class EndpointParser:
         reference_imports = list()
 
         if "requestBody" in endpoint:
-            schema = self._get_reference(endpoint["requestBody"])
+            schema = self._parse_reference(endpoint["requestBody"])
             reference_imports.append(schema)
             schema = ", schema: " + schema
 
-        status_codes_imports, status_codes = self._get_status_codes(
+        status_codes_imports, status_codes = self._parse_status_codes(
             endpoint["responses"]
         )
 
@@ -81,13 +84,13 @@ class EndpointParser:
 
         return (
             reference_imports + status_codes_imports,
-            schema,
+            schema,  # TODO: add chtoto
             description,
             http_method,
             status_codes,
         )
 
-    def _get_status_codes(
+    def _parse_status_codes(
         self, endpoint: dict[str, Any]
     ) -> tuple[list[str | None], str]:
         imports = list()
@@ -95,7 +98,7 @@ class EndpointParser:
         for response in endpoint.items():
             reference = ""
             if "content" in response[1]:
-                reference = self._get_reference(endpoint)
+                reference = self._parse_reference(endpoint)
                 imports.append(reference)
                 reference = ", " + reference
 
@@ -107,8 +110,19 @@ class EndpointParser:
 
         return imports, status_codes
 
+    def _parse_parameters(self, endpoint: tuple[dict[str, Any]]) -> str:
+        args = ""
+        for parameter in endpoint:
+            parameter_type = self.object_parser.make_type(parameter["schema"])[1]
+            args += f", {parameter['name']}: {parameter_type}"
+            if parameter["required"]:
+                args += " | None = None"
+            match parameter["in"]:
+                case "path":
+                    ...
+
     @staticmethod
-    def _get_reference(endpoint: dict[str, Any]) -> str:
+    def _parse_reference(endpoint: dict[str, Any]) -> str:
         schema = endpoint["content"]["application/json"]["schema"]["$ref"].split("/")[
             -1
         ]

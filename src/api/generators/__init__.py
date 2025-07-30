@@ -6,10 +6,11 @@ from typing import Any
 from .file import FileWriterProtocol, LocalFileWriter
 from src.api.client import HTTPClientProtocol
 from .models_generator import (
-    ObjectSchemaParser,
     EnumSchemaParser,
     DataPageSchemaParser,
 )
+
+from .object_parser import ObjectParser
 
 from .endpoints_generator import EndpointParser
 
@@ -27,7 +28,7 @@ class OpenAPIGenerator:
         self.endpoints_path = endpoints_path
         self.file_writer = file_writer
         self.parsers = {
-            "object": ObjectSchemaParser(),
+            "object": ObjectParser(),
             "enum": EnumSchemaParser(),
             "datapage": DataPageSchemaParser(),
             "endpoint": EndpointParser(),
