@@ -41,12 +41,13 @@ class EndpointParser:
         self, endpoint_path: str, endpoint: dict[str, Any]
     ) -> tuple[str, list[str | None], str]:  # tag, imports, method
         method_name = self._camel_to_snake(endpoint_path.split("/")[-1])
+        self.endpoint_path = endpoint_path + "?"
 
         imports, args, description, http_method, status_codes = self._parse_endpoint(
             endpoint
         )
 
-        request_body = ',\nschema.mode.model_dump(mode="json")' if schema else ""
+        request_body = ',\nschema.mode.model_dump(mode="json")' if args[0] else ""
 
         return (
             self._camel_to_snake(endpoint["tags"][0]),
@@ -56,7 +57,7 @@ class EndpointParser:
                 args=args,
                 description=description,
                 http_method=http_method,
-                endpoint_path=endpoint_path,
+                endpoint_path=self.endpoint_path,
                 request_body=request_body,
                 status_codes=status_codes,
             ),
@@ -80,11 +81,13 @@ class EndpointParser:
             endpoint["responses"]
         )
 
+        parameters = self._parse_parameters(endpoint["parameters"])
+
         description = endpoint["description"]
 
         return (
             reference_imports + status_codes_imports,
-            schema,  # TODO: add chtoto
+            schema + parameters,
             description,
             http_method,
             status_codes,
@@ -111,15 +114,19 @@ class EndpointParser:
         return imports, status_codes
 
     def _parse_parameters(self, endpoint: tuple[dict[str, Any]]) -> str:
-        args = ""
+        parameters = ""
         for parameter in endpoint:
             parameter_type = self.object_parser.make_type(parameter["schema"])[1]
-            args += f", {parameter['name']}: {parameter_type}"
+            parameters += f", {parameter['name']}: {parameter_type}"
             if parameter["required"]:
-                args += " | None = None"
-            match parameter["in"]:
-                case "path":
-                    ...
+                parameters += " | None = None"
+
+            if parameter["in"] == "query":
+                self.endpoint_path += (
+                    f"{parameter['name']}=" + "{" + f"{parameter['name']}" + "}"
+                )
+
+        return parameters
 
     @staticmethod
     def _parse_reference(endpoint: dict[str, Any]) -> str:
