@@ -11,7 +11,7 @@ T = TypeVar("T", bound=BaseModel)
 class HTTPClientProtocol(Protocol):
     url: str
 
-    async def get(self, endpoint: str) -> tuple[int, dict[str, Any]]:
+    async def get(self, endpoint: str, response_model: Type[T]) -> tuple[int, T]:
         raise NotImplementedError
 
     async def post(
@@ -29,17 +29,25 @@ class AsyncHTTPXClient:
         self.url = url
         self.logger = logging.getLogger(__name__)
 
-    async def get(self, endpoint: str) -> tuple[int, dict[str, Any]]:
+    async def get(
+        self, endpoint: str, response_model: Type[T] | None = None
+    ) -> tuple[int, T]:
         response = await self.client.get(self.url + endpoint)
         response.raise_for_status()
+        if response_model:
+            return response.status_code, response_model.model_validate(response.json())
+
         return response.status_code, response.json()
 
     async def post(
-        self, endpoint: str, data: dict[str, Any], response_model: Type[T]
+        self, endpoint: str, data: dict[str, Any], response_model: Type[T] | None = None
     ) -> tuple[int, T]:
         response = await self.client.post(self.url + endpoint, json=data)
         response.raise_for_status()
-        return response.status_code, response_model.model_validate(response.json())
+        if response_model:
+            return response.status_code, response_model.model_validate(response.json())
+
+        return response.status_code, response.json()
 
     async def close(self) -> None:
         await self.client.aclose()

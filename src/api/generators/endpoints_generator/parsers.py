@@ -19,8 +19,8 @@ class EndpointParser:
         self.object_parser = ObjectParser()
 
         self.status_codes_template = """            case {status_code}:
-                return("{description}"{reference})
-        """
+                return "{description}"{reference}
+"""
 
         self.method_template = '''    async def {method_name}(
         self{args}
@@ -31,9 +31,8 @@ class EndpointParser:
         )
 
         match status_code:
-{status_codes}
-            case _:
-                return("Unknown status code.")
+{status_codes}            case _:
+                return "Unknown status code.", None
 '''
 
     def parse(
@@ -116,11 +115,11 @@ class EndpointParser:
         status_codes = ""
         model = ""
         for response in endpoint.items():
-            reference = ""
+            reference = ", None"
             if "content" in response[1]:
                 reference = self._parse_reference(response[1])
                 model = reference
-                reference = ", " + reference
+                reference = ", response"
 
             status_codes += self.status_codes_template.format(
                 status_code=response[0],
