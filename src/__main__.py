@@ -17,12 +17,11 @@ async def main():
     http_client = AsyncHTTPXClient(ARTIFACTS_URL, headers)
 
     generator = await OpenAPIGenerator.create_generator(
-        openapi_url="openapi.json",
         http_client=http_client,
         file_writer=LocalFileWriter(),
     )
 
-    await generator.generate_models()
+    # await generator.generate_models()
     await generator.generate_endpoints()
 
 

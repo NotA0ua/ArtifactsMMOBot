@@ -4,3 +4,4 @@ __pycache__
 .idea
 uv.lock
 src/api/models/*
+src/api/endpoints/*

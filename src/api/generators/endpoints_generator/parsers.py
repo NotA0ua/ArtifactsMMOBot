@@ -19,42 +19,57 @@ class EndpointParser:
         self.object_parser = ObjectParser()
 
         self.status_codes_template = """            case {status_code}:
-
-                return "{description}"{reference}
+                return("{description}"{reference})
         """
 
-        self.method_template = '''  async def {method_name}(
+        self.method_template = '''    async def {method_name}(
         self{args}
-    ) -> {return_type}:
+    ) -> tuple[str, {return_type} | None]:
         """{description}"""
         status_code, response = await self.http_client.{http_method}(
             f"{endpoint_path}"{request_body}
         )
 
         match status_code:
- {status_codes}
+{status_codes}
             case _:
-                return "Unknown status code."
+                return("Unknown status code.")
 '''
 
     def parse(
         self, endpoint_path: str, endpoint: dict[str, Any]
-    ) -> tuple[str, list[str | None], str]:  # tag, imports, method
+    ) -> tuple[
+        str, str, list[str], str
+    ]:  # default tag, tag snake_case, imports, method
+        http_method = list(endpoint.keys())[0]
+        endpoint = endpoint[http_method]
+
         method_name = self._camel_to_snake(endpoint_path.split("/")[-1])
         self.endpoint_path = endpoint_path + "?"
 
-        imports, args, description, http_method, status_codes = self._parse_endpoint(
-            endpoint
-        )
+        (
+            reference_model,
+            status_code_model,
+            schema,
+            parameters,
+            description,
+            status_codes,
+        ) = self._parse_endpoint(endpoint)
 
-        request_body = ',\nschema.mode.model_dump(mode="json")' if args[0] else ""
+        request_body = ',\nschema.mode.model_dump(mode="json")' if schema else ""
+
+        imports = [status_code_model]
+        if reference_model:
+            imports.append(reference_model)
 
         return (
+            endpoint["tags"][0].replace(" ", ""),
             self._camel_to_snake(endpoint["tags"][0]),
             imports,
             self.method_template.format(
                 method_name=method_name,
-                args=args,
+                args=schema + parameters,
+                return_type=status_code_model,
                 description=description,
                 http_method=http_method,
                 endpoint_path=self.endpoint_path,
@@ -65,44 +80,46 @@ class EndpointParser:
 
     def _parse_endpoint(
         self, endpoint: dict[str, Any]
-    ) -> tuple[list[str | None], str, str, str, str]:
-        http_method = list(endpoint.keys())[0]
-        endpoint = endpoint[http_method]
-
+    ) -> tuple[str | None, str, str, str, str, str]:
         schema = ""
-        reference_imports = list()
+        parameters = ""
+        description = ""
+        reference_model = None
 
         if "requestBody" in endpoint:
-            schema = self._parse_reference(endpoint["requestBody"])
-            reference_imports.append(schema)
+            schema = self.object_parser.make_type(
+                endpoint["requestBody"]["content"]["application/json"]["schema"]
+            )[1]
+            reference_model = schema
             schema = ", schema: " + schema
 
-        status_codes_imports, status_codes = self._parse_status_codes(
+        status_code_model, status_codes = self._parse_status_codes(
             endpoint["responses"]
         )
 
-        parameters = self._parse_parameters(endpoint["parameters"])
+        if "parameters" in endpoint:
+            parameters = self._parse_parameters(endpoint["parameters"])
 
-        description = endpoint["description"]
+        if "description" in description:
+            description = endpoint["description"]
 
         return (
-            reference_imports + status_codes_imports,
-            schema + parameters,
+            reference_model,
+            status_code_model,
+            schema,
+            parameters,
             description,
-            http_method,
             status_codes,
         )
 
-    def _parse_status_codes(
-        self, endpoint: dict[str, Any]
-    ) -> tuple[list[str | None], str]:
-        imports = list()
+    def _parse_status_codes(self, endpoint: dict[str, Any]) -> tuple[str, str]:
         status_codes = ""
+        model = ""
         for response in endpoint.items():
             reference = ""
             if "content" in response[1]:
-                reference = self._parse_reference(endpoint)
-                imports.append(reference)
+                reference = self._parse_reference(response[1])
+                model = reference
                 reference = ", " + reference
 
             status_codes += self.status_codes_template.format(
@@ -111,7 +128,7 @@ class EndpointParser:
                 reference=reference,
             )
 
-        return imports, status_codes
+        return model, status_codes
 
     def _parse_parameters(self, endpoint: tuple[dict[str, Any]]) -> str:
         parameters = ""

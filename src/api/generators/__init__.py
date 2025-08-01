@@ -46,9 +46,11 @@ class OpenAPIGenerator:
         models_path: str = "./src/api/models",
         endpoints_path: str = "./src/api/endpoints",
     ):
-        openapi = await http_client.get(openapi_url)
-        await http_client.close()
-        return cls(openapi[1], file_writer, models_path, endpoints_path)
+        try:
+            openapi = await http_client.get(openapi_url)
+            return cls(openapi[1], file_writer, models_path, endpoints_path)
+        finally:
+            await http_client.close()
 
     async def generate_models(self) -> None:
         models = self.openapi["components"]["schemas"]
@@ -75,27 +77,37 @@ from src.api.models import {models}
 
 
 class {endpoint_name}:
-    def __init__(self, http_client: HTTPClientProtocol, {endpoint_args}) -> None:
+    def __init__(self, http_client: HTTPClientProtocol) -> None:
         self.http_client = http_client
-        {endpoint_self_args}
 
-    {methods}
+{methods}
 """
         endpoints = self.openapi["paths"]
         init_content = list()
         endpoint_tags = dict()
 
         for endpoint_path, endpoint in endpoints.items():
-            tag, imports, method = self.parsers["endpoint"].parse(
+            default_tag, tag, imports, method = self.parsers["endpoint"].parse(
                 endpoint_path, endpoint
             )
 
-            new_endpoint_tags = endpoint_tags.setdefault(tag, [[], ""])
-            new_endpoint_tags[0].append(imports)
-            new_endpoint_tags[1] += method
+            new_endpoint_tags = endpoint_tags.setdefault(tag, [[], default_tag, ""])
+            new_endpoint_tags[0].extend(imports)
+            new_endpoint_tags[2] += method
             endpoint_tags[tag] = new_endpoint_tags
 
-        # for tag, content in endpoint_tags.items():
+        print(endpoint_tags.keys())
+
+        for tag, endpoint_content in endpoint_tags.items():
+            init_content.append(f"from .{tag} import {endpoint_content[1]}")
+            self.file_writer.write(
+                f"{self.endpoints_path}/{tag}.py",
+                endpoint_template.format(
+                    models=", ".join(endpoint_content[0]),
+                    endpoint_name=endpoint_content[1],
+                    methods=endpoint_content[2],
+                ),
+            )
 
         self.file_writer.write(
             f"{self.endpoints_path}/__init__.py", "\n".join(init_content)
