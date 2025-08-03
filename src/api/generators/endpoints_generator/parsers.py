@@ -26,8 +26,9 @@ class EndpointParser:
         self{args}
     ) -> tuple[str, {return_type} | None]:
         """{description}"""
+        endpoint_path = {endpoint_path}
         status_code, response = await self.http_client.{http_method}(
-            f"{endpoint_path}"{request_body}
+            endpoint_path{request_body}{response_model}
         )
 
         match status_code:
@@ -43,10 +44,10 @@ class EndpointParser:
         http_method = list(endpoint.keys())[0]
         endpoint = endpoint[http_method]
 
-        method_name = self._camel_to_snake(endpoint_path.split("/")[-1])
-        self.endpoint_path = endpoint_path + "?"
+        endpoint_path += "?"
 
         (
+            method_name,
             reference_model,
             status_code_model,
             schema,
@@ -61,6 +62,10 @@ class EndpointParser:
         if reference_model:
             imports.append(reference_model)
 
+        response_model = (
+            f", response_model={status_code_model}" if status_code_model else ""
+        )
+
         return (
             endpoint["tags"][0].replace(" ", ""),
             self._camel_to_snake(endpoint["tags"][0]),
@@ -73,17 +78,20 @@ class EndpointParser:
                 http_method=http_method,
                 endpoint_path=self.endpoint_path,
                 request_body=request_body,
+                response_model=response_model,
                 status_codes=status_codes,
             ),
         )
 
     def _parse_endpoint(
         self, endpoint: dict[str, Any]
-    ) -> tuple[str | None, str, str, str, str, str]:
+    ) -> tuple[str, str | None, str, str, str, str, str]:
         schema = ""
         parameters = ""
-        description = ""
         reference_model = None
+        description = ""
+
+        method_name = self._camel_to_snake(endpoint["summary"])
 
         if "requestBody" in endpoint:
             schema = self.object_parser.make_type(
@@ -99,10 +107,11 @@ class EndpointParser:
         if "parameters" in endpoint:
             parameters = self._parse_parameters(endpoint["parameters"])
 
-        if "description" in description:
+        if "description" in endpoint:
             description = endpoint["description"]
 
         return (
+            method_name,
             reference_model,
             status_code_model,
             schema,
@@ -134,13 +143,12 @@ class EndpointParser:
         for parameter in endpoint:
             parameter_type = self.object_parser.make_type(parameter["schema"])[1]
             parameters += f", {parameter['name']}: {parameter_type}"
-            if parameter["required"]:
+            if not parameter["required"]:
                 parameters += " | None = None"
 
             if parameter["in"] == "query":
-                self.endpoint_path += (
-                    f"{parameter['name']}=" + "{" + f"{parameter['name']}" + "}"
-                )
+            #TODO: Make a if checker for all args
+
 
         return parameters
 
@@ -155,4 +163,9 @@ class EndpointParser:
     @staticmethod
     def _camel_to_snake(name: str) -> str:
         name = sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
-        return sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).lower().replace(" ", "_")
+        return (
+            sub(r"([a-z0-9])([A-Z])", r"\1_\2", name)
+            .lower()
+            .replace(" _", "_")
+            .replace(" ", "_")
+        )

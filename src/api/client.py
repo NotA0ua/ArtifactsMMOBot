@@ -11,11 +11,16 @@ T = TypeVar("T", bound=BaseModel)
 class HTTPClientProtocol(Protocol):
     url: str
 
-    async def get(self, endpoint: str, response_model: Type[T]) -> tuple[int, T]:
+    async def get(
+        self, endpoint: str, response_model: Type[T] | None = None
+    ) -> tuple[int, T]:
         raise NotImplementedError
 
     async def post(
-        self, endpoint: str, data: dict[str, Any], response_model: Type[T]
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        response_model: Type[T] | None = None,
     ) -> tuple[int, T]:
         raise NotImplementedError
 
@@ -40,7 +45,10 @@ class AsyncHTTPXClient:
         return response.status_code, response.json()
 
     async def post(
-        self, endpoint: str, data: dict[str, Any], response_model: Type[T] | None = None
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        response_model: Type[T] | None = None,
     ) -> tuple[int, T]:
         response = await self.client.post(self.url + endpoint, json=data)
         response.raise_for_status()
