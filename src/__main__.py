@@ -21,7 +21,7 @@ async def main():
         file_writer=LocalFileWriter(),
     )
 
-    # await generator.generate_models()
+    await generator.generate_models()
     await generator.generate_endpoints()
 
 

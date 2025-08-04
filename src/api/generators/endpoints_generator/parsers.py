@@ -21,14 +21,19 @@ class EndpointParser:
         self.status_codes_template = """            case {status_code}:
                 return "{description}"{reference}
 """
+        self.endpoint_parameter_template = """        if {parameter_name}:
+            endpoint_path += "{parameter_name}=" + str({parameter_name}) + "&"
+"""
 
         self.method_template = '''    async def {method_name}(
         self{args}
     ) -> tuple[str, {return_type} | None]:
         """{description}"""
-        endpoint_path = {endpoint_path}
+        endpoint_path = "{endpoint_path}"
+{endpoint_parameter}
+
         status_code, response = await self.http_client.{http_method}(
-            endpoint_path{request_body}{response_model}
+            endpoint_path[:-1]{request_body}{response_model}
         )
 
         match status_code:
@@ -52,6 +57,7 @@ class EndpointParser:
             status_code_model,
             schema,
             parameters,
+            endpoint_parameter,
             description,
             status_codes,
         ) = self._parse_endpoint(endpoint)
@@ -76,7 +82,8 @@ class EndpointParser:
                 return_type=status_code_model,
                 description=description,
                 http_method=http_method,
-                endpoint_path=self.endpoint_path,
+                endpoint_path=endpoint_path,
+                endpoint_parameter=endpoint_parameter,
                 request_body=request_body,
                 response_model=response_model,
                 status_codes=status_codes,
@@ -85,9 +92,10 @@ class EndpointParser:
 
     def _parse_endpoint(
         self, endpoint: dict[str, Any]
-    ) -> tuple[str, str | None, str, str, str, str, str]:
+    ) -> tuple[str, str | None, str, str, str, str, str, str]:
         schema = ""
         parameters = ""
+        endpoint_parameter = ""
         reference_model = None
         description = ""
 
@@ -105,7 +113,9 @@ class EndpointParser:
         )
 
         if "parameters" in endpoint:
-            parameters = self._parse_parameters(endpoint["parameters"])
+            parameters, endpoint_parameter = self._parse_parameters(
+                endpoint["parameters"]
+            )
 
         if "description" in endpoint:
             description = endpoint["description"]
@@ -116,6 +126,7 @@ class EndpointParser:
             status_code_model,
             schema,
             parameters,
+            endpoint_parameter,
             description,
             status_codes,
         )
@@ -138,19 +149,20 @@ class EndpointParser:
 
         return model, status_codes
 
-    def _parse_parameters(self, endpoint: tuple[dict[str, Any]]) -> str:
+    def _parse_parameters(self, endpoint: tuple[dict[str, Any]]) -> tuple[str, str]:
         parameters = ""
+        endpoint_parameter = ""
         for parameter in endpoint:
             parameter_type = self.object_parser.make_type(parameter["schema"])[1]
             parameters += f", {parameter['name']}: {parameter_type}"
             if not parameter["required"]:
                 parameters += " | None = None"
+                if parameter["in"] == "query":
+                    endpoint_parameter += self.endpoint_parameter_template.format(
+                        parameter_name=parameter["name"]
+                    )
 
-            if parameter["in"] == "query":
-            #TODO: Make a if checker for all args
-
-
-        return parameters
+        return parameters, endpoint_parameter
 
     @staticmethod
     def _parse_reference(endpoint: dict[str, Any]) -> str:
