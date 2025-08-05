@@ -55,6 +55,7 @@ class EndpointParser:
             method_name,
             reference_model,
             status_code_model,
+            parameter_imports,
             schema,
             parameters,
             endpoint_parameter,
@@ -67,6 +68,8 @@ class EndpointParser:
         imports = [status_code_model]
         if reference_model:
             imports.append(reference_model)
+        if parameter_imports:
+            imports.extend(parameter_imports)  # pyright: ignore
 
         response_model = (
             f", response_model={status_code_model}" if status_code_model else ""
@@ -92,12 +95,13 @@ class EndpointParser:
 
     def _parse_endpoint(
         self, endpoint: dict[str, Any]
-    ) -> tuple[str, str | None, str, str, str, str, str, str]:
+    ) -> tuple[str, str | None, str, list[str | None], str, str, str, str, str]:
         schema = ""
         parameters = ""
         endpoint_parameter = ""
         reference_model = None
         description = ""
+        parameter_imports = []
 
         method_name = self._camel_to_snake(endpoint["summary"])
 
@@ -113,7 +117,7 @@ class EndpointParser:
         )
 
         if "parameters" in endpoint:
-            parameters, endpoint_parameter = self._parse_parameters(
+            parameters, endpoint_parameter, parameter_imports = self._parse_parameters(
                 endpoint["parameters"]
             )
 
@@ -124,6 +128,7 @@ class EndpointParser:
             method_name,
             reference_model,
             status_code_model,
+            parameter_imports,
             schema,
             parameters,
             endpoint_parameter,
@@ -151,11 +156,19 @@ class EndpointParser:
 
         return model, status_codes
 
-    def _parse_parameters(self, endpoint: tuple[dict[str, Any]]) -> tuple[str, str]:
+    def _parse_parameters(
+        self, endpoint: tuple[dict[str, Any]]
+    ) -> tuple[str, str, list[str | None]]:
         parameters = ""
         endpoint_parameter = ""
+        imports = []
         for parameter in endpoint:
-            parameter_type = self.object_parser.make_type(parameter["schema"])[1]
+            parameter_import, parameter_type = self.object_parser.make_type(
+                parameter["schema"]
+            )
+            if parameter_import:
+                imports.append(parameter_type)
+
             parameters += f", {parameter['name']}: {parameter_type}"
             if not parameter["required"]:
                 parameters += " | None = None"
@@ -164,7 +177,7 @@ class EndpointParser:
                         parameter_name=parameter["name"]
                     )
 
-        return parameters, endpoint_parameter
+        return parameters, endpoint_parameter, imports
 
     @staticmethod
     def _camel_to_snake(name: str) -> str:

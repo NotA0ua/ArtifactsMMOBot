@@ -67,6 +67,8 @@ class {schema_name}(BaseModel):
         ref_type = prop["$ref"].split("/")[-1]
         if ref_type.startswith("DataPage"):
             ref_type = ref_type.replace("_", "")
+        if "_a-z" in ref_type:
+            ref_type = ref_type[: ref_type.find("_a-z")]
         snake_ref = self._camel_to_snake(ref_type)
         return f"from .{snake_ref} import {ref_type}\n", ref_type
 
