@@ -55,6 +55,7 @@ class OpenAPIGenerator:
     async def generate_models(self) -> None:
         models = self.openapi["components"]["schemas"]
         init_content = list()
+        all_content = list()
         for model in models.values():
             model_name, file_content = self._resolve_model(model)
             if file_content and model_name:
@@ -66,9 +67,11 @@ class OpenAPIGenerator:
                 )
 
                 init_content.append(f"from .{snake_name} import {model_name}")
+                all_content.append('"' + model_name + '"')
 
         self.file_writer.write(
-            f"{self.models_path}/__init__.py", "\n".join(init_content)
+            f"{self.models_path}/__init__.py",
+            "\n".join(init_content) + f"\n__all__ = [{', '.join(all_content)}]\n",
         )
 
     async def generate_endpoints(self) -> None:
@@ -84,6 +87,7 @@ class {endpoint_name}:
         endpoints = self.openapi["paths"]
         init_content = list()
         endpoint_tags = dict()
+        all_content = list()
 
         for endpoint_path, endpoint in endpoints.items():
             default_tag, tag, imports, method = self.parsers["endpoint"].parse(
@@ -99,6 +103,7 @@ class {endpoint_name}:
 
         for tag, endpoint_content in endpoint_tags.items():
             init_content.append(f"from .{tag} import {endpoint_content[1]}")
+            all_content.append('"' + endpoint_content[1] + '"')
             self.file_writer.write(
                 f"{self.endpoints_path}/{tag}.py",
                 endpoint_template.format(
@@ -109,7 +114,8 @@ class {endpoint_name}:
             )
 
         self.file_writer.write(
-            f"{self.endpoints_path}/__init__.py", "\n".join(init_content)
+            f"{self.endpoints_path}/__init__.py",
+            "\n".join(init_content) + f"\n__all__ = [{', '.join(all_content)}]\n",
         )
 
     def _resolve_model(self, model: dict[str, Any]) -> tuple[str | None, str | None]:
