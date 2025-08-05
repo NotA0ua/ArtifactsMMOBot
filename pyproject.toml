@@ -1,6 +1,6 @@
 [project]
 name = "artifactsmmobot"
-version = "0.1.23"
+version = "0.1.25"
 description = "A telegram bot for ArtifactsMMO"
 requires-python = ">=3.13"
 dependencies = [

@@ -65,6 +65,8 @@ class {schema_name}(BaseModel):
 
     def _resolve_reference(self, prop: dict[str, Any]) -> tuple[str, str]:
         ref_type = prop["$ref"].split("/")[-1]
+        if ref_type.startswith("DataPage"):
+            ref_type = ref_type.replace("_", "")
         snake_ref = self._camel_to_snake(ref_type)
         return f"from .{snake_ref} import {ref_type}\n", ref_type
 

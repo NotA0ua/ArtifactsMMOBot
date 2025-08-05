@@ -80,8 +80,7 @@ class {endpoint_name}:
     def __init__(self, http_client: HTTPClientProtocol) -> None:
         self.http_client = http_client
 
-{methods}
-"""
+{methods}"""
         endpoints = self.openapi["paths"]
         init_content = list()
         endpoint_tags = dict()
@@ -91,8 +90,8 @@ class {endpoint_name}:
                 endpoint_path, endpoint
             )
 
-            new_endpoint_tags = endpoint_tags.setdefault(tag, [[], default_tag, ""])
-            new_endpoint_tags[0].extend(imports)
+            new_endpoint_tags = endpoint_tags.setdefault(tag, [set(), default_tag, ""])
+            new_endpoint_tags[0].update(imports)
             new_endpoint_tags[2] += method
             endpoint_tags[tag] = new_endpoint_tags
 

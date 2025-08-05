@@ -29,9 +29,8 @@ class EndpointParser:
         self{args}
     ) -> tuple[str, {return_type} | None]:
         """{description}"""
-        endpoint_path = "{endpoint_path}"
+        endpoint_path = f"{endpoint_path}"
 {endpoint_parameter}
-
         status_code, response = await self.http_client.{http_method}(
             endpoint_path[:-1]{request_body}{response_model}
         )
@@ -39,6 +38,7 @@ class EndpointParser:
         match status_code:
 {status_codes}            case _:
                 return "Unknown status code.", None
+
 '''
 
     def parse(
@@ -62,7 +62,7 @@ class EndpointParser:
             status_codes,
         ) = self._parse_endpoint(endpoint)
 
-        request_body = ',\nschema.mode.model_dump(mode="json")' if schema else ""
+        request_body = ',schema.model_dump(mode="json")' if schema else ""
 
         imports = [status_code_model]
         if reference_model:
@@ -137,7 +137,9 @@ class EndpointParser:
         for response in endpoint.items():
             reference = ", None"
             if "content" in response[1]:
-                reference = self._parse_reference(response[1])
+                reference = self.object_parser.make_type(
+                    response[1]["content"]["application/json"]["schema"]
+                )[1]
                 model = reference
                 reference = ", response"
 
@@ -163,14 +165,6 @@ class EndpointParser:
                     )
 
         return parameters, endpoint_parameter
-
-    @staticmethod
-    def _parse_reference(endpoint: dict[str, Any]) -> str:
-        schema = endpoint["content"]["application/json"]["schema"]["$ref"].split("/")[
-            -1
-        ]
-
-        return schema
 
     @staticmethod
     def _camel_to_snake(name: str) -> str:
