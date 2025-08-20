@@ -5,3 +5,4 @@ __pycache__
 uv.lock
 src/api/models/*
 src/api/endpoints/*
+pyrightconfig.json
