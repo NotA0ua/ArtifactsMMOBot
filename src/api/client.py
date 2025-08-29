@@ -8,9 +8,7 @@ from pydantic import BaseModel
 T = TypeVar("T", bound=BaseModel)
 
 
-class HTTPClientProtocol(Protocol):
-    url: str
-
+class AsyncHTTPClientProtocol(Protocol):
     async def get(
         self, endpoint: str, response_model: Type[T] | None = None
     ) -> tuple[int, T]:

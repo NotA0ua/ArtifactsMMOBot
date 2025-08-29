@@ -1,3 +1,3 @@
-from .client import AsyncHTTPXClient
+from .client import AsyncHTTPXClient, AsyncHTTPClientProtocol
 
-__all__ = ["AsyncHTTPXClient"]
+__all__ = ["AsyncHTTPXClient", "AsyncHTTPClientProtocol"]

@@ -3,7 +3,7 @@ from re import sub
 from typing import Any
 
 from .file import FileWriterProtocol, LocalFileWriter
-from src.api.client import HTTPClientProtocol
+from src.api import AsyncHTTPClientProtocol
 from .models_generator import (
     EnumSchemaParser,
     DataPageSchemaParser,
@@ -39,7 +39,7 @@ class OpenAPIGenerator:
     @classmethod
     async def create_generator(
         cls,
-        http_client: HTTPClientProtocol,
+        http_client: AsyncHTTPClientProtocol,
         file_writer: FileWriterProtocol,
         openapi_url: str = "openapi.json",
         models_path: str = "./src/api/models",
@@ -74,12 +74,12 @@ class OpenAPIGenerator:
         )
 
     async def generate_endpoints(self) -> None:
-        endpoint_template = """from src.api.client import HTTPClientProtocol
+        endpoint_template = """from src.api import AsyncHTTPClientProtocol
 from src.api.models import {models}
 
 
 class {endpoint_name}:
-    def __init__(self, http_client: HTTPClientProtocol) -> None:
+    def __init__(self, http_client: AsyncHTTPClientProtocol) -> None:
         self.http_client = http_client
 
 {methods}"""

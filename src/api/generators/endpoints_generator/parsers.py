@@ -71,6 +71,11 @@ class EndpointParser:
         if parameter_imports:
             imports.extend(parameter_imports)  # pyright: ignore
 
+        for element in imports:
+            if element.startswith("list["):
+                imports.remove(element)
+                imports.append(element[5:-1])
+
         response_model = (
             f", response_model={status_code_model}" if status_code_model else ""
         )
